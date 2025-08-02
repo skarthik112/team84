@@ -1,11 +1,15 @@
+import streamlit as st
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
-model_id = "ibm-granite/granite-3.1-3b-a800m-instruct"
-
-tokenizer = AutoTokenizer.from_pretrained(model_id)
-model = AutoModelForCausalLM.from_pretrained(model_id)
+@st.cache_resource
+def load_model():
+    model_id = "ibm-granite/granite-3.1-3b-a800m-instruct"
+    tokenizer = AutoTokenizer.from_pretrained(model_id)
+    model = AutoModelForCausalLM.from_pretrained(model_id)
+    return tokenizer, model
 
 def rewrite_text(text):
+    tokenizer, model = load_model()
     inputs = tokenizer(text, return_tensors="pt", max_length=1024, truncation=True)
     outputs = model.generate(
         **inputs,

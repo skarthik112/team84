@@ -1,7 +1,9 @@
+import os
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 import streamlit as st
 from api_rewriter import rewrite_text
 from api_tts import text_to_speech
-import os
 from datetime import datetime
 import json
 
@@ -101,14 +103,15 @@ language = st.selectbox("Choose a Language", ["English", "Spanish", "French", "G
 
 # ---------- Rewrite & Audio Generation ----------
 if st.button("✨ Rewrite and Generate Audio") and input_text:
-    with st.spinner("Rewriting using AI..."):
-        rewritten = rewrite_text(input_text).strip()
-        lines = rewritten.splitlines()
-        filtered = [line for line in lines if not any(line.lower().startswith(k) for k in ["input:", "question:", "answer:", "response:", "--"])]
-        rewritten = "\n".join(filtered).strip()
+    with st.spinner("Loading AI model... This may take a few minutes on first run"):
+        with st.spinner("Rewriting using AI..."):
+            rewritten = rewrite_text(input_text).strip()
+            lines = rewritten.splitlines()
+            filtered = [line for line in lines if not any(line.lower().startswith(k) for k in ["input:", "question:", "answer:", "response:", "--"])]
+            rewritten = "\n".join(filtered).strip()
 
-        st.session_state.latest_original = input_text
-        st.session_state.latest_rewritten = rewritten
+            st.session_state.latest_original = input_text
+            st.session_state.latest_rewritten = rewritten
 
     col1, col2 = st.columns(2)
     with col1:
