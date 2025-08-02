@@ -1,51 +1,45 @@
-import requests
 import streamlit as st
-import time
+from transformers import pipeline
+
+@st.cache_resource
+def load_model():
+    # Using a very small, fast model for text generation
+    generator = pipeline(
+        'text-generation',
+        model='distilgpt2',  # Much smaller than GPT-2
+        tokenizer='distilgpt2',
+        device=-1  # Use CPU, not GPU
+    )
+    return generator
 
 def rewrite_text(text):
-    """
-    Uses Hugging Face Inference API for text rewriting.
-    No local model needed - runs in the cloud!
-    """
-    # Using a free model that's good for text rewriting
-    API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
+    generator = load_model()
     
     # Create a prompt for rewriting
-    prompt = f"Rewrite this text to make it more engaging and narrative: {text}"
-    
-    payload = {
-        "inputs": prompt,
-        "parameters": {
-            "max_new_tokens": 200,
-            "temperature": 0.7,
-            "do_sample": True
-        }
-    }
+    prompt = f"Rewrite this text in an engaging, narrative style:\n\n{text}\n\nRewritten version:"
     
     try:
-        response = requests.post(API_URL, json=payload, timeout=30)
+        # Generate with the model
+        result = generator(
+            prompt,
+            max_new_tokens=150,
+            do_sample=True,
+            temperature=0.7,
+            top_p=0.9,
+            pad_token_id=generator.tokenizer.eos_token_id,
+            truncation=True
+        )
         
-        if response.status_code == 200:
-            result = response.json()
-            if isinstance(result, list) and len(result) > 0:
-                generated_text = result[0].get('generated_text', text)
-                return generated_text
-            else:
-                return text
-        elif response.status_code == 503:
-            # Model is loading, try again after a short wait
-            st.warning("AI model is warming up... trying again in a moment")
-            time.sleep(3)
-            response = requests.post(API_URL, json=payload, timeout=30)
-            if response.status_code == 200:
-                result = response.json()
-                if isinstance(result, list) and len(result) > 0:
-                    return result[0].get('generated_text', text)
+        generated_text = result[0]['generated_text']
         
-        # If API fails, return original text
-        st.warning("AI rewriting temporarily unavailable, using original text")
-        return text
-        
+        # Extract only the rewritten part (after "Rewritten version:")
+        if "Rewritten version:" in generated_text:
+            rewritten = generated_text.split("Rewritten version:")[-1].strip()
+            return rewritten if rewritten else text
+        else:
+            # If no clear separation, return the generated text minus the original prompt
+            return generated_text[len(prompt):].strip() or text
+            
     except Exception as e:
-        st.warning(f"AI rewriting error: {str(e)}")
+        st.error(f"AI rewriting error: {str(e)}")
         return text
