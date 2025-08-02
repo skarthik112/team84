@@ -1,190 +1,175 @@
+import os
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 import streamlit as st
 from api_rewriter import rewrite_text
 from api_tts import text_to_speech
-import os
 from datetime import datetime
+import json
 
 # ---------- Setup ----------
-st.set_page_config(page_title="EchoVerse – AI Audiobook Creator", layout="wide")
+st.set_page_config(page_title="🎿 EchoVerse – AI Audiobook Creator", layout="wide")
 
 if "past_narrations" not in st.session_state:
     st.session_state.past_narrations = []
 
-# ---------- Theme Logic ----------
-def apply_theme(theme_name):
-    if theme_name == "Glass":
-        return """<style>
-            html, body, .stApp {
-                background: linear-gradient(135deg, #f0f0f0, #d0d0d0);
-                font-family: 'Segoe UI', sans-serif;
-            }
-            .block-container {
-                background: rgba(255, 255, 255, 0.25);
-                backdrop-filter: blur(12px);
-                border-radius: 16px;
-                padding: 2rem;
-                box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-            }
-            .stTextArea textarea, .stTextInput input {
-                background: rgba(255, 255, 255, 0.2) !important;
-                color: #000 !important;
-                border: none;
-                border-radius: 12px;
-                font-weight: 500;
-            }
-            .stButton > button {
-                background: rgba(255, 255, 255, 0.25) !important;
-                color: #000;
-                border-radius: 10px;
-                font-weight: bold;
-            }
-        </style>"""
-
-    elif theme_name == "Pastel":
-        return """<style>
-            html, body, .stApp { background-color: #fffafc; }
-            .stButton>button { background-color: #ffc1e3 !important; color: #4b0082; }
-            .stTextArea textarea, .stTextInput input {
-                background-color: #fff0f5 !important;
-                color: #4b0082 !important;
-            }
-        </style>"""
-
-    elif theme_name == "Sunlight":
-        return """<style>
-            html, body, .stApp { background-color: #fffbea; }
-            .stButton>button { background-color: #ffe299 !important; color: #3e2723; }
-            .stTextArea textarea, .stTextInput input {
-                background-color: #fff8dc !important;
-                color: #3e2723 !important;
-            }
-        </style>"""
-
-    elif theme_name == "Forest":
-        return """<style>
-            html, body, .stApp { background-color: #e8f5e9; }
-            .stButton>button { background-color: #4caf50 !important; color: white; }
-            .stTextArea textarea, .stTextInput input {
-                background-color: #dcedc8 !important;
-                color: #2e7d32 !important;
-            }
-        </style>"""
-
-    return ""
+# ---------- Custom Styles ----------
+st.markdown("""
+    <style>
+    .sidebar-title {
+        font-size: 26px;
+        font-weight: bold;
+        color: #00bcd4;
+    }
+    .sidebar-section {
+        margin-top: 20px;
+    }
+    .stButton>button {
+        background-color: #00bcd4;
+        color: white;
+        border-radius: 12px;
+        font-weight: bold;
+        transition: background-color 0.3s ease;
+    }
+    .stButton>button:hover {
+        background-color: #008c9e;
+    }
+    .stTextArea label, .stTextInput label, .stRadio label, .stFileUploader label {
+        color: #003366 !important;
+    }
+    h1, h2, h3, h4, h5, h6, .stMarkdown { color: #1c1c1c !important; }
+    .download-btn-style button {
+        background-color: #00acc1 !important;
+        color: white;
+        border-radius: 8px;
+        padding: 8px 16px;
+        font-weight: bold;
+    }
+    .highlighted-word {
+        background-color: yellow;
+        font-weight: bold;
+        animation: pulse 1s ease-in-out infinite alternate;
+    }
+    @keyframes pulse {
+        from { background-color: #ffeb3b; }
+        to { background-color: #ffc107; }
+    }
+    .audio-container {
+        position: relative;
+    }
+    .themed-container {
+        background: #f9f9f9;
+        padding: 16px;
+        border-radius: 12px;
+        box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.05);
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 # ---------- Sidebar ----------
 with st.sidebar:
-    st.markdown("<h2>EchoVerse</h2>", unsafe_allow_html=True)
-    st.markdown("""
-        <p style='font-size: 0.9rem; color: #333;'>
-            Create expressive, AI-generated audiobooks from any text with voice, tone, and language customization.
-        </p>
-    """, unsafe_allow_html=True)
+    st.markdown("<div class='sidebar-title'>🎿 EchoVerse</div>", unsafe_allow_html=True)
+    st.markdown("Welcome to your personal audiobook studio!")
+    theme_choice = st.selectbox("🎨 Choose Theme", ["Default", "Pastel", "Cyberpunk", "Forest"])
     st.markdown("---")
-    theme_choice = st.selectbox("Theme", ["Default", "Glass", "Pastel", "Sunlight", "Forest"], key="theme_choice")
+    st.markdown("<div class='sidebar-section'><h5>📜 Past Narrations</h5></div>", unsafe_allow_html=True)
+    for narration in st.session_state.past_narrations:
+        st.markdown(f"🔊 *{narration['title']}*")
 
-    # Narration History
-    if st.session_state.past_narrations:
-        st.markdown("### 📖 History")
-        for item in st.session_state.past_narrations:
-            st.markdown(f"- {item['title']} ({item.get('tone', 'N/A')}, {item.get('voice', 'N/A')}, {item.get('language', 'N/A')})")
-
-# ---------- Apply Theme ----------
-st.markdown(apply_theme(st.session_state.theme_choice), unsafe_allow_html=True)
-
-# ---------- App Title ----------
+# ---------- Title ----------
 st.markdown("""
-<h1 style='text-align: center;'>EchoVerse – AI Audiobook Creator</h1>
-<p style='text-align: center; color: #5D6D7E;'>Transform your text into engaging audio stories with customized tone and voice.</p>
+    <h1>🎿 EchoVerse – AI Audiobook Creator</h1>
+    <p style='color:#5D6D7E;'>Craft expressive audiobooks using AI tone, voice, and language</p>
 """, unsafe_allow_html=True)
 
-# ---------- Input Section ----------
-st.subheader("📝 Narration Setup")
+# ---------- Input Method ----------
+st.subheader("📝 Input Section")
+input_method = st.radio("Choose Input Method", ["Type/Paste Text", "Upload .txt File"], horizontal=True)
 
-input_method = st.radio("Input Method", ["Type Text", "Upload .txt File"], horizontal=True)
 input_text = ""
-if input_method == "Type Text":
-    input_text = st.text_area("Enter your text", height=200)
-else:
+if input_method == "Type/Paste Text":
+    input_text = st.text_area("Enter Original Text", height=300, key="input_area")
+elif input_method == "Upload .txt File":
     uploaded_file = st.file_uploader("Upload a .txt file", type="txt")
-    if uploaded_file:
+    if uploaded_file is not None:
         input_text = uploaded_file.read().decode("utf-8")
-        st.text_area("File Preview", input_text, height=200, disabled=True)
+        st.text_area("File Content", input_text, height=300, key="file_area")
 
-st.markdown("### 🎭 Tone, Voice & Language")
-tone = st.selectbox("Select Tone", ["Inspiring", "Suspenseful", "Dramatic", "Comedic", "Neutral"])
-voice = st.selectbox("Select Voice", ["Lisa (Female)", "Martin (Male)", "Sofia (Female)", "Ethan (Male)"])
-language = st.selectbox("Select Language", ["English", "Spanish", "French", "German"])
+# ---------- Tone Selector ----------
+st.subheader("🎭 Tone & Voice Settings")
+tone = st.selectbox("Choose a Tone", ["Inspiring", "Suspenseful", "Neutral", "Romantic", "Dramatic", "Comedic", "Empathetic", "Narrative"])
+voice = st.selectbox("Choose a Voice", ["Lisa (Female)", "Martin (Male)", "Sofia (Female)", "Ethan (Male)"])
+language = st.selectbox("Choose a Language", ["English", "Spanish", "French", "German"])
 
-# ---------- Rewrite and Audio Generation ----------
+# ---------- Rewrite & Audio Generation ----------
 if st.button("✨ Rewrite and Generate Audio") and input_text:
-    with st.spinner("Rewriting the text..."):
-        rewritten_text = rewrite_text(input_text)
+    with st.spinner("Loading AI model... This may take a few minutes on first run"):
+        with st.spinner("Rewriting using AI..."):
+            rewritten = rewrite_text(input_text).strip()
+            lines = rewritten.splitlines()
+            filtered = [line for line in lines if not any(line.lower().startswith(k) for k in ["input:", "question:", "answer:", "response:", "--"])]
+            rewritten = "\n".join(filtered).strip()
 
-    # Title and file-safe name
-    title = f"{tone} Story – {datetime.now().strftime('%b %d, %H-%M')}"
-    safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).rstrip()
-    audio_file = f"{safe_title}.mp3"
+            st.session_state.latest_original = input_text
+            st.session_state.latest_rewritten = rewritten
 
-    with st.spinner("Generating Audio..."):
-        audio_path = text_to_speech(rewritten_text, filename=audio_file, voice=voice, language=language)
-
-    # Save to history
-    st.session_state.past_narrations.insert(0, {
-        "title": title,
-        "text": input_text,
-        "rewritten": rewritten_text,
-        "audio": f"narrations/{audio_file}",
-        "tone": tone,
-        "voice": voice,
-        "language": language
-    })
-
-    # Show output side-by-side
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown("### 📝 Original Text")
-        st.text_area("Original", input_text, height=250, disabled=True)
+        st.markdown("#### Original Text")
+        st.text_area("Original", st.session_state.latest_original, height=300, disabled=True, key="final_original")
     with col2:
-        st.markdown("### ✍ Rewritten Text")
-        st.text_area("Rewritten", rewritten_text, height=250, disabled=True)
+        st.markdown("#### Rewritten Text")
+        st.text_area("Rewritten", st.session_state.latest_rewritten, height=300, disabled=True, key="final_rewritten")
 
-    st.audio(f"narrations/{audio_file}")
-    with open(f"narrations/{audio_file}", "rb") as audio_bin:
-        st.download_button("🔽 Download Audio", audio_bin.read(), file_name=audio_file, mime="audio/mpeg")
+    with st.spinner("Generating Audio..."):
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        title = st.text_input("Give this narration a title", f"Inspiring_Story_{timestamp}")
+        result = text_to_speech(st.session_state.latest_rewritten, f"{title}.mp3", voice=voice, language=language)
 
-    st.download_button("📜 Download Rewritten Text", rewritten_text, file_name=f"{safe_title}.txt")
+        if isinstance(result, tuple):
+            audio_path, subtitle_path = result
+        else:
+            audio_path = result
+            subtitle_path = None
 
-# ---------- Past Narrations ----------
-if st.session_state.past_narrations:
-    st.markdown("## 📚 Past Narrations")
-    to_delete = None
-    for i, narration in enumerate(st.session_state.past_narrations):
-        with st.expander(f"🎰 {narration['title']}", expanded=False):
-            st.markdown(f"*Tone:* {narration.get('tone', 'N/A')} | *Voice:* {narration.get('voice', 'N/A')} | *Language:* {narration.get('language', 'N/A')}")
+        st.toast("✅ Audio generated successfully! Scroll down to view or download it.", icon="🔊")
+        st.audio(audio_path, format="audio/mp3")
 
-            st.audio(narration["audio"])
+        with open(audio_path, "rb") as audio_file:
+            st.download_button("📥 Download MP3", file_name=f"{title}.mp3", data=audio_file.read(), mime="audio/mp3")
 
-            if os.path.exists(narration["audio"]):
-                with open(narration["audio"], "rb") as audio_file:
-                    st.download_button("🔽 Download Audio", audio_file.read(), file_name=os.path.basename(narration["audio"]), mime="audio/mpeg", key=f"download_audio_{i}")
+        if subtitle_path and os.path.exists(subtitle_path):
+            with open(subtitle_path, "r") as f:
+                subtitles = json.load(f)
+            st.markdown("### ⏱ Word-by-word subtitles")
+            st.json(subtitles)
 
-            st.download_button("📜 Download Rewritten Text", narration["rewritten"], file_name=f"{narration['title']}.txt", key=f"download_txt_{i}")
+        st.session_state.past_narrations.insert(0, {
+            "title": title,
+            "text": st.session_state.latest_original,
+            "rewritten": st.session_state.latest_rewritten,
+            "tone": tone,
+            "voice": voice,
+            "language": language,
+            "audio": audio_path,
+            "timestamp": timestamp
+        })
 
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown("#### 📝 Original Text")
-                st.text_area("Original", narration["text"], height=200, disabled=True, key=f"orig_{i}")
-            with col2:
-                st.markdown("#### ✍ Rewritten Text")
-                st.text_area("Rewritten", narration["rewritten"], height=200, disabled=True, key=f"rew_{i}")
+# ---------- Past Narrations Section ----------
+st.subheader("📚 Full Narration History")
+for narration in st.session_state.past_narrations:
+    with st.expander(f"🔊 {narration['title']} ({narration['tone']}, {narration['voice']}, {narration['language']})"):
+        st.markdown(f"*Original Text:* {narration['text']}")
+        st.markdown(f"*Rewritten Text:* {narration['rewritten']}")
+        st.audio(narration["audio"], format="audio/mp3")
+        with open(narration['audio'], "rb") as audio_file:
+            st.download_button(label="Download", file_name=f"{narration['title']}.mp3", data=audio_file.read(), mime="audio/mp3")
 
-            if st.button(f"🗑 Delete Narration", key=f"delete_{i}"):
-                to_delete = i
-
-    if to_delete is not None:
-        deleted = st.session_state.past_narrations.pop(to_delete)
-        if os.path.exists(deleted["audio"]):
-            os.remove(deleted["audio"])
-        st.success(f"Deleted: {deleted['title']}")
-        st.rerun()
+# ---------- Emoji Feedback ----------
+st.markdown("---")
+st.markdown("## ❤ Did you enjoy the last narration?")
+st.markdown("React below:")
+colA, colB, colC = st.columns(3)
+colA.button("😍 Love it!")
+colB.button("👍 Nice!")
+colC.button("🤔 Needs work")
