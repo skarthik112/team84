@@ -5,5 +5,3 @@ matplotlib
 seaborn
 plotly
 requests
-transformers
-torch
