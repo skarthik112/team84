@@ -1,6 +1,9 @@
+
 streamlit
-torch
-transformers
-sentencepiece
-pydub
-soundfile
+pandas
+numpy
+matplotlib
+seaborn
+plotly
+requests
+EOF
