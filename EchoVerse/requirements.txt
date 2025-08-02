@@ -6,3 +6,5 @@ seaborn
 plotly
 requests
 edge-tts
+transformers
+torch
