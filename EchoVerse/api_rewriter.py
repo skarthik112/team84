@@ -3,9 +3,14 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 
 @st.cache_resource
 def load_model():
-    model_id = "ibm-granite/granite-3.1-3b-a800m-instruct"
+    model_id = "gpt2"  # Much smaller and faster model
     tokenizer = AutoTokenizer.from_pretrained(model_id)
     model = AutoModelForCausalLM.from_pretrained(model_id)
+    
+    # Add padding token if it doesn't exist
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    
     return tokenizer, model
 
 def rewrite_text(text):
