@@ -7,6 +7,10 @@ from api_tts import text_to_speech
 from datetime import datetime
 import json
 
+# Ensure narrations folder exists
+os.makedirs("narrations", exist_ok=True)
+
+
 # ---------- Setup ----------
 st.set_page_config(page_title="🎿 EchoVerse – AI Audiobook Creator", layout="wide")
 
