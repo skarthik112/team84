@@ -1,6 +1,9 @@
 streamlit
-torch
+pandas
+numpy
+matplotlib
+seaborn
+plotly
+requests
 transformers
-sentencepiece
-pydub
-soundfile
+torch
