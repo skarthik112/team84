@@ -1,26 +1,51 @@
+import requests
 import streamlit as st
-from transformers import AutoTokenizer, AutoModelForCausalLM
-
-@st.cache_resource
-def load_model():
-    model_id = "gpt2"  # Much smaller and faster model
-    tokenizer = AutoTokenizer.from_pretrained(model_id)
-    model = AutoModelForCausalLM.from_pretrained(model_id)
-    
-    # Add padding token if it doesn't exist
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
-    
-    return tokenizer, model
+import time
 
 def rewrite_text(text):
-    tokenizer, model = load_model()
-    inputs = tokenizer(text, return_tensors="pt", max_length=1024, truncation=True)
-    outputs = model.generate(
-        **inputs,
-        max_new_tokens=200,
-        do_sample=True,
-        temperature=0.7,
-        top_p=0.9,
-    )
-    return tokenizer.decode(outputs[0], skip_special_tokens=True)
+    """
+    Uses Hugging Face Inference API for text rewriting.
+    No local model needed - runs in the cloud!
+    """
+    # Using a free model that's good for text rewriting
+    API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
+    
+    # Create a prompt for rewriting
+    prompt = f"Rewrite this text to make it more engaging and narrative: {text}"
+    
+    payload = {
+        "inputs": prompt,
+        "parameters": {
+            "max_new_tokens": 200,
+            "temperature": 0.7,
+            "do_sample": True
+        }
+    }
+    
+    try:
+        response = requests.post(API_URL, json=payload, timeout=30)
+        
+        if response.status_code == 200:
+            result = response.json()
+            if isinstance(result, list) and len(result) > 0:
+                generated_text = result[0].get('generated_text', text)
+                return generated_text
+            else:
+                return text
+        elif response.status_code == 503:
+            # Model is loading, try again after a short wait
+            st.warning("AI model is warming up... trying again in a moment")
+            time.sleep(3)
+            response = requests.post(API_URL, json=payload, timeout=30)
+            if response.status_code == 200:
+                result = response.json()
+                if isinstance(result, list) and len(result) > 0:
+                    return result[0].get('generated_text', text)
+        
+        # If API fails, return original text
+        st.warning("AI rewriting temporarily unavailable, using original text")
+        return text
+        
+    except Exception as e:
+        st.warning(f"AI rewriting error: {str(e)}")
+        return text
